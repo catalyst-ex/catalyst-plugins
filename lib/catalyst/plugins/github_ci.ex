@@ -19,6 +19,6 @@ defmodule Catalyst.Plugins.GithubCI do
   # --- Template Helpers ---
 
   defp template_path(filename) do
-    Application.app_dir(:catalyst, ["priv", "templates", "github", filename])
+    Application.app_dir(:catalyst_plugins, ["priv", "templates", "github", filename])
   end
 end

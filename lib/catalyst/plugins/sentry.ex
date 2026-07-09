@@ -1,6 +1,5 @@
 defmodule Catalyst.Plugins.Sentry do
   use Catalyst.Plugin
-  alias Sourceror.Zipper
   alias Catalyst.Execution
 
   @impl true

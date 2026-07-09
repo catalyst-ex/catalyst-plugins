@@ -43,7 +43,7 @@ defmodule Catalyst.Plugins.Mailer do
   end
 
   defp read_template!(path, app_module) do
-    Application.app_dir(:catalyst, ["priv", "templates", "mailer", path])
+    Application.app_dir(:catalyst_plugins, ["priv", "templates", "mailer", path])
     |> File.read!()
     |> String.replace("Catalyst", app_module)
   end

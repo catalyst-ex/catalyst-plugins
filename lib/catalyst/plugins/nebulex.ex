@@ -34,6 +34,6 @@ defmodule Catalyst.Plugins.Nebulex do
   # --- Template Helpers ---
 
   defp template_path(filename) do
-    Application.app_dir(:catalyst, ["priv", "templates", "utils", filename])
+    Application.app_dir(:catalyst_plugins, ["priv", "templates", "utils", filename])
   end
 end

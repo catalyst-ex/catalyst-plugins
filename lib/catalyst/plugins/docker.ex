@@ -14,6 +14,6 @@ defmodule Catalyst.Plugins.Docker do
   # --- Template Helpers ---
 
   defp template_path(filename) do
-    Application.app_dir(:catalyst, ["priv", "templates", "ops", filename])
+    Application.app_dir(:catalyst_plugins, ["priv", "templates", "ops", filename])
   end
 end
