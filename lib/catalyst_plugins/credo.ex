@@ -18,7 +18,8 @@ defmodule Catalyst.Plugins.Credo do
   end
 
   defp read_template!(filename) do
-    Application.app_dir(:catalyst_plugins, ["priv", "templates", filename])
+    :catalyst_plugins
+    |> Application.app_dir(["priv", "templates", filename])
     |> File.read!()
   end
 end
