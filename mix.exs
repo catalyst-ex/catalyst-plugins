@@ -3,7 +3,7 @@ defmodule CatalystPlugins.MixProject do
 
   @app :catalyst_plugins
   @name "Catalyst Plugins"
-  @version "0.1.0"
+  @version "1.0.0-beta.0"
   @github "https://github.com/catalyst-ex/catalyst-plugins"
 
   def project do
