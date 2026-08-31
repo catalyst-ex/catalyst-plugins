@@ -33,7 +33,8 @@ defmodule CatalystPlugins.MixProject do
 
   defp deps do
     [
-      {:catalyst, path: "../catalyst"},
+      {:catalyst, "~> 1.0.0-beta.0"},
+      # {:catalyst, path: "../catalyst"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false}
     ]
