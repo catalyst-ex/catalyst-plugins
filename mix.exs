@@ -36,7 +36,8 @@ defmodule CatalystPlugins.MixProject do
       {:catalyst, "~> 1.0.0-beta.0"},
       # {:catalyst, path: "../catalyst"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false}
+      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false},
+      {:ex_doc, ">= 0.0.0", only: :dev}
     ]
   end
 
