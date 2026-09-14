@@ -1,0 +1,18 @@
+defmodule <%= inspect(goth_fetcher_module) %> do
+  @moduledoc """
+  Token fetcher for Waffle GCS using <%= inspect(goth_process_module) %>.
+  """
+  @behaviour Waffle.Storage.Google.Token.Fetcher
+
+  @impl Waffle.Storage.Google.Token.Fetcher
+  def get_token(scopes) when is_list(scopes), do: get_token(Enum.join(scopes, " "))
+
+  @impl Waffle.Storage.Google.Token.Fetcher
+  def get_token(scope) when is_binary(scope) do
+    # Fetch from the named Goth process
+    case Goth.fetch(<%= inspect(goth_process_module) %>) do
+      {:ok, token} -> token.token
+      _ -> ""
+    end
+  end
+end
