@@ -1,0 +1,302 @@
+defmodule <%= inspect(uploads_module) %> do
+  @moduledoc """
+  Upload type definitions and helpers for working with uploads
+  """
+
+  use Waffle.Ecto.Schema
+
+  alias Ecto.Changeset
+  alias Phoenix.LiveView.Socket
+
+  @doc """
+  Macro to define Upload Type
+  """
+  defmacro __using__(_opts) do
+    quote do
+      use Waffle.Definition
+      use Waffle.Ecto.Definition
+
+      alias <%= inspect(uploads_module) %>
+    end
+  end
+
+  @doc """
+  Prepare a file for upload from a local path
+  """
+  @spec from_path(String.t(), String.t() | nil) :: {:ok, Plug.Upload.t()} | {:error, atom()}
+  def from_path(path, extension \\ nil) when is_binary(path) do
+    path = Path.expand(path)
+    ext = extension(extension || path)
+
+    if File.exists?(path) do
+      upload = %Plug.Upload{
+        path: path,
+        filename: Path.basename(path),
+        content_type: MIME.type(ext)
+      }
+
+      {:ok, upload}
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Prepare a file for upload from binary contents
+  """
+  # sobelow_skip ["Traversal.FileModule"]
+  @spec from_binary(binary(), String.t(), String.t() | nil) ::
+          {:ok, Plug.Upload.t()} | {:error, atom()}
+  def from_binary(body, ext, mime_type \\ nil) when is_binary(body) do
+    name = if ext == "", do: uuid(), else: "#{uuid()}.#{ext}"
+    path = Path.join(System.tmp_dir!(), name)
+
+    with :ok <- File.write(path, body) do
+      upload = %Plug.Upload{
+        path: path,
+        filename: name,
+        content_type: mime_type || MIME.type(ext)
+      }
+
+      {:ok, upload}
+    end
+  end
+
+  @doc """
+  Prepare a file for upload from a remote URL
+  """
+  @spec from_url(String.t()) :: {:ok, Plug.Upload.t()} | {:error, atom()}
+  def from_url(url) when is_binary(url) do
+    case Req.get(url) do
+      {:ok, %{status: status} = resp} when status in 200..299 ->
+        ext = extension(URI.parse(url).path)
+        mime_type = resp |> Req.Response.get_header("content-type") |> List.first()
+        from_binary(resp.body, ext, mime_type)
+
+      _else ->
+        {:error, :download_failed}
+    end
+  end
+
+  @doc """
+  Consume file uploads in LiveView
+
+  Example 1: Return files as %Plug.Upload{}
+
+    consume_entries(socket, :avatar)
+
+  Example 2: Upload and return file references
+
+    consume_entries(socket, :avatar, with: &Avatar.store({&1, user}))
+
+  Example 3: Save file with the record (without randomizing filename)
+
+    consume_entries(socket, :avatar, name: :original, with: fn file ->
+      Accounts.update_user(user, %{avatar: file})
+    end)
+
+  """
+  @spec consume_entries(Socket.t(), atom() | String.t(), Keyword.t()) :: [any()]
+  def consume_entries(%Socket{} = socket, upload_key, opts \\ []) when is_list(opts) do
+    consumer = Keyword.get(opts, :with, &default_consumer/1)
+    if not is_function(consumer, 1), do: raise(ArgumentError, "invalid consumer function")
+
+    Phoenix.LiveView.consume_uploaded_entries(socket, upload_key, fn meta, entry ->
+      file = %Plug.Upload{
+        filename: entry.client_name,
+        content_type: entry.client_type,
+        path: meta.path
+      }
+
+      # Randomize filename by default
+      file =
+        case Keyword.get(opts, :name, :random) do
+          :original -> rename_with_random_suffix(file)
+          :random -> rename(file)
+          name when is_binary(name) -> rename(file, name)
+        end
+
+      consumer.(file)
+    end)
+  end
+
+  @doc """
+  Like consume_entries, but returns the first entry only
+  """
+  @spec consume_entry(Socket.t(), atom() | String.t(), Keyword.t()) :: any()
+  def consume_entry(socket, upload_key, opts \\ []) do
+    socket
+    |> consume_entries(upload_key, opts)
+    |> List.first()
+  end
+
+  # sobelow_skip ["Traversal.FileModule"]
+  defp default_consumer(%Plug.Upload{} = file) do
+    path = Path.join(System.tmp_dir!(), file.filename)
+    File.cp!(file.path, path)
+
+    {:ok, %{file | path: path}}
+  end
+
+  @doc ~S"""
+  Allows upload for many/dynamic fields
+
+  Example 1: Accepts same options
+
+    allow_dynamic_uploads(socket, :investors, spv.notable_investors, accept: ~(jpg), max_file_size: 5_000_000)
+
+  Example 2: Can use custom upload_key generation logic
+
+    allow_dynamic_uploads(socket, :managers, fund.managers, upload_key: &"manager--#{&1.user_id}")
+
+  """
+  @spec allow_dynamic_uploads(Socket.t(), String.Chars.t(), [any()], Keyword.t()) :: Socket.t()
+  def allow_dynamic_uploads(%Socket{} = socket, name, list, opts \\ []) when is_list(list) do
+    {key_fun, opts} = Keyword.pop(opts, :upload_key, &upload_key(name, &1))
+
+    Enum.reduce(list, socket, fn item, socket ->
+      key = key_fun.(item)
+
+      case socket.assigns.uploads[key] do
+        nil -> Phoenix.LiveView.allow_upload(socket, key, opts)
+        _other -> socket
+      end
+    end)
+  end
+
+  @doc """
+  Default helper to build dynamic upload keys
+  """
+  @spec upload_key(String.Chars.t(), map()) :: String.t()
+  def upload_key(name, %{} = map) do
+    id = Map.get(map, :id) || Map.get(map, "id") || raise(":upload_key failed to get :id")
+    "#{name}--#{id}"
+  end
+
+  @doc """
+  Return the name of an uploaded file
+  """
+  def filename(%{file_name: filename}), do: filename
+  def filename(filename) when is_binary(filename), do: filename
+
+  @doc """
+  Cast an attachment.
+
+  Works for both new and existing uploads.
+
+  Data Examples:
+
+    - %{logo: %Plug.Upload{...}}
+    - %{logo: "uploaded-string.jpg"}
+
+  Usage Examples:
+
+    - cast_attachment(changeset, :logo)
+    - cast_attachment(changeset, :nested_field_upload, scope: parent)
+
+  """
+  def cast_attachment(%Changeset{} = changeset, field, opts \\ []) when is_atom(field) do
+    field_str = to_string(field)
+    value = changeset.params[field_str]
+    scope = Keyword.get(opts, :scope)
+
+    cond do
+      # Don't do anything if the field is not set
+      !Map.has_key?(changeset.params, field_str) ->
+        changeset
+
+      # Ignore empty strings
+      value == "" ->
+        Changeset.put_change(changeset, field, nil)
+
+      # Existing uploads when passed as strings
+      is_binary(value) ->
+        Changeset.put_change(changeset, field, waffle_data(value))
+
+      # Existing uploads passed as map
+      match?(%{file_name: _, updated_at: _}, value) ->
+        Changeset.put_change(changeset, field, value)
+
+      # Scoped uploads as `{file, scope}`
+      match?({%Plug.Upload{}, _scope}, value) ->
+        Changeset.cast(changeset, %{field => value}, [field])
+
+      # When scope is passed via the `scope:` option
+      scope && match?(%Plug.Upload{}, value) ->
+        Changeset.cast(changeset, %{field => {value, scope}}, [field])
+
+      # Waffle's default handler for everything else
+      true ->
+        # This line is just to avoid the compiler warning about the never matching `:invalid` clause in Waffle.Ecto.Schema.
+        # <https://github.com/elixir-waffle/waffle_ecto/blob/b0bd5f8c8bfde13ebfa81a4fb46211ee5f9dec8b/lib/waffle_ecto/schema.ex#L74-L75>
+        # Could be removed if the unnecessary `:invalid` clause got removed upstream.
+        params = if field, do: %{field => value}, else: :invalid
+
+        cast_attachments(changeset, params, [field])
+    end
+  end
+
+  # Create waffle type data from filename
+  def waffle_data(filename) when is_binary(filename) do
+    now = NaiveDateTime.truncate(NaiveDateTime.utc_now(), :second)
+    %{file_name: filename, updated_at: now}
+  end
+
+  @doc """
+  Validate extensions
+  """
+  def valid_extension?(%{file_name: name}, extensions), do: valid_extension?(name, extensions)
+
+  def valid_extension?(name, extensions) when is_binary(name) and is_list(extensions) do
+    name
+    |> Path.extname()
+    |> String.downcase()
+    |> then(&Enum.member?(extensions, &1))
+  end
+
+  @doc """
+  Build a standardized name for file versions.
+
+  This should only be used in Waffle definitions.
+  """
+  def version_name(%{file_name: name}, version) when is_atom(version) do
+    ext = Path.extname(name)
+    name = Path.basename(name, ext)
+    version_suffix = ".#{version}"
+
+    # Don't change name if it is already suffixed (waffle bug)
+    if String.ends_with?(name, version_suffix) do
+      name
+    else
+      name <> version_suffix
+    end
+  end
+
+  @doc """
+  Rename a file to the given name or a random UUID
+  """
+  def rename(%Plug.Upload{} = file, name \\ uuid()) do
+    %{file | filename: "#{name}.#{extension(file)}"}
+  end
+
+  defp rename_with_random_suffix(%Plug.Upload{} = file) do
+    random_suffix =
+      8 |> :crypto.strong_rand_bytes() |> Base.hex_encode32(case: :lower, padding: false)
+
+    rename(file, Path.rootname(file.filename) <> "_" <> random_suffix)
+  end
+
+  # Get the extension from a file name (without the dot)
+  def extension(%Plug.Upload{filename: name}), do: extension(name)
+
+  def extension(""), do: ""
+
+  def extension(path) when is_binary(path) do
+    case Path.extname(path) do
+      "." <> ext -> String.downcase(ext)
+      "" -> ""
+    end
+  end
+
+  defp uuid, do: Ecto.UUID.generate()
+end
