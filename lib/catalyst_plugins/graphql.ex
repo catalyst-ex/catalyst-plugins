@@ -1,4 +1,4 @@
-defmodule Catalyst.Plugins.Graphql do
+defmodule Catalyst.Plugins.GraphQL do
   use Catalyst.Plugin
   alias Sourceror.Zipper
   alias Catalyst.Execution
@@ -13,10 +13,14 @@ defmodule Catalyst.Plugins.Graphql do
     schema_module = Module.concat([app_module, "Schema"])
 
     [
-      # Dependency
+      # Add Dependencies
       {Actions.AddDependency, name: :absinthe, version: "~> 1.7"},
       {Actions.AddDependency, name: :absinthe_plug, version: "~> 1.5"},
       {Actions.AddDependency, name: :absinthe_upload_standard, version: "~> 0.1.0"},
+      # Fetch deps
+      {Actions.MixTask, name: "deps.get"},
+
+      # Patch endpoint.ex to register the Absinthe plug parser within the existing parsers
       {Actions.PatchFile,
        path: endpoint_path,
        target: fn root_zipper ->
@@ -58,6 +62,8 @@ defmodule Catalyst.Plugins.Graphql do
        end,
        content: "Absinthe.Plug.Parser",
        position: :end},
+
+      # Patch endpoint.ex to register the Absinthe upload plug
       {Actions.PatchFile,
        path: endpoint_path,
        target: :defmodule,
@@ -67,6 +73,8 @@ defmodule Catalyst.Plugins.Graphql do
          {:plug, _, [{:__aliases__, _, [:Plug, :Parsers]} | _]} -> true
          _ -> false
        end},
+
+      # Patch router.ex to register graphql scope
       {Actions.PatchFile,
        path: router_path,
        target: :defmodule,
@@ -78,6 +86,8 @@ defmodule Catalyst.Plugins.Graphql do
        end
        """,
        position: :end},
+
+      # Patch router.ex to register graphql interactive scope
       {Actions.PatchFile,
        path: router_path,
        target: :defmodule,
@@ -91,6 +101,8 @@ defmodule Catalyst.Plugins.Graphql do
        end
        """,
        position: :end},
+
+      # Add ready to use schema file
       {Actions.AddFile,
        path: schema_path,
        content: """
@@ -106,10 +118,7 @@ defmodule Catalyst.Plugins.Graphql do
             end
          end
        end
-       """},
-
-      # Fetch deps
-      {Actions.MixTask, name: "deps.get"}
+       """}
     ]
   end
 end
