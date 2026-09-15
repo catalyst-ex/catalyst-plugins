@@ -17,9 +17,12 @@ defmodule Catalyst.Plugins.Waffle do
     uploads_path = Path.join(["lib", "#{otp}", "uploads", "uploads.ex"])
 
     [
+      # Add dependencies
       {Actions.AddDependency, name: :waffle, version: "1.1.9"},
       {Actions.AddDependency, name: :waffle_ecto, version: "0.0.12"},
       {Actions.AddFile, path: uploads_path, content: uploads_module_content},
+
+      # Patch dev config to use local storage provider
       {Actions.PatchFile,
        path: Path.join("config", "dev.exs"),
        target: nil,
@@ -49,9 +52,12 @@ defmodule Catalyst.Plugins.Waffle do
     goth_fetcher_path = Path.join(["lib", "#{otp}", "storage", "goth_fetcher.ex"])
 
     [
+      # Add dependencies
       {Actions.AddDependency, name: :waffle_gcs, version: "~> 0.2"},
       {Actions.AddDependency, name: :goth, version: "~> 1.4"},
       {Actions.AddFile, path: goth_fetcher_path, content: goth_fetcher_module_content},
+
+      # Patch application.ex to register Goth process for prod only
       {Actions.PatchFile,
        path: application_path,
        target: :start,
@@ -68,6 +74,8 @@ defmodule Catalyst.Plugins.Waffle do
          {:=, _, [{:children, _, _}, _rhs]} -> true
          _ -> false
        end},
+
+      # Patch prod config to use GCS provider
       {Actions.PatchFile,
        path: Path.join("config", "prod.exs"),
        target: nil,
@@ -78,6 +86,8 @@ defmodule Catalyst.Plugins.Waffle do
         version_timeout: 120_000
        """,
        position: :end},
+
+      # Patch runtime config to use GCS provider for prod only
       {Actions.PatchFile,
        path: Path.join(["config", "runtime.exs"]),
        target: nil,
@@ -98,9 +108,12 @@ defmodule Catalyst.Plugins.Waffle do
 
   defp provider(:aws, _otp, _app_module) do
     [
+      # Add dependencies
       {Actions.AddDependency, name: :ex_aws, version: "~> 2.1.2"},
       {Actions.AddDependency, name: :ex_aws_s3, version: "~> 2.0"},
       {Actions.AddDependency, name: :sweet_xml, version: "~> 0.6"},
+
+      # Patch config to set codec for aws sdk
       {Actions.PatchFile,
        path: Path.join("config", "config.exs"),
        target: nil,
@@ -109,6 +122,8 @@ defmodule Catalyst.Plugins.Waffle do
         json_codec: Jason
        """,
        position: :end},
+
+      # Patch prod config to use AWS S3 provider
       {Actions.PatchFile,
        path: Path.join("config", "prod.exs"),
        target: nil,
@@ -118,6 +133,8 @@ defmodule Catalyst.Plugins.Waffle do
         version_timeout: 120_000
        """,
        position: :end},
+
+      # Patch runtime config to use AWS sdk and S3 provider for prod only
       {Actions.PatchFile,
        path: Path.join(["config", "runtime.exs"]),
        target: nil,
