@@ -55,6 +55,9 @@ defmodule Catalyst.Plugins.Waffle do
       # Add dependencies
       {Actions.AddDependency, name: :waffle_gcs, version: "~> 0.2"},
       {Actions.AddDependency, name: :goth, version: "~> 1.4"},
+      {Actions.MixTask, name: "deps.get"},
+
+      # Add token fetcher module for GCS
       {Actions.AddFile, path: goth_fetcher_path, content: goth_fetcher_module_content},
 
       # Patch application.ex to register Goth process for prod only
@@ -101,8 +104,7 @@ defmodule Catalyst.Plugins.Waffle do
              json: System.fetch_env!("GOOGLE_APPLICATION_CREDENTIALS_JSON")|> Jason.decode!()
        end
        """,
-       position: :end},
-      {Actions.MixTask, name: "deps.get"}
+       position: :end}
     ]
   end
 
@@ -112,6 +114,7 @@ defmodule Catalyst.Plugins.Waffle do
       {Actions.AddDependency, name: :ex_aws, version: "~> 2.1.2"},
       {Actions.AddDependency, name: :ex_aws_s3, version: "~> 2.0"},
       {Actions.AddDependency, name: :sweet_xml, version: "~> 0.6"},
+      {Actions.MixTask, name: "deps.get"},
 
       # Patch config to set codec for aws sdk
       {Actions.PatchFile,
@@ -151,8 +154,7 @@ defmodule Catalyst.Plugins.Waffle do
             asset_host: System.fetch_env!("AWS_ASSET_HOST")
        end
        """,
-       position: :end},
-      {Actions.MixTask, name: "deps.get"}
+       position: :end}
     ]
   end
 
