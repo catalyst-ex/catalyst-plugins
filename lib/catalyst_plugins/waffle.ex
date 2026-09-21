@@ -18,8 +18,8 @@ defmodule Catalyst.Plugins.Waffle do
 
     [
       # Add dependencies
-      {Actions.AddDependency, name: :waffle, version: "1.1.9"},
-      {Actions.AddDependency, name: :waffle_ecto, version: "0.0.12"},
+      {Actions.AddDependency, name: :waffle, version: "2.0"},
+      {Actions.AddDependency, name: :waffle_ecto, version: "0.0"},
       {Actions.AddFile, path: uploads_path, content: uploads_module_content},
 
       # Patch dev config to use local storage provider
@@ -111,8 +111,9 @@ defmodule Catalyst.Plugins.Waffle do
   defp provider(:aws, _otp, _app_module) do
     [
       # Add dependencies
-      {Actions.AddDependency, name: :ex_aws, version: "~> 2.1.2"},
-      {Actions.AddDependency, name: :ex_aws_s3, version: "~> 2.0"},
+      {Actions.AddDependency, name: :ex_aws, version: "~> 2.7"},
+      {Actions.AddDependency, name: :ex_aws_s3, version: "~> 2.1"},
+      {Actions.AddDependency, name: :req, version: "~> 0.7"},
       {Actions.AddDependency, name: :sweet_xml, version: "~> 0.6"},
       {Actions.MixTask, name: "deps.get"},
 
@@ -122,7 +123,8 @@ defmodule Catalyst.Plugins.Waffle do
        target: nil,
        content: """
        config :ex_aws,
-        json_codec: Jason
+        json_codec: Jason,
+        http_client: ExAws.Request.Req
        """,
        position: :end},
 
