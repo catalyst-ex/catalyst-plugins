@@ -1,4 +1,4 @@
-defmodule Catalyst.Plugins.GraphQL do
+defmodule Catalyst.Plugins.Absinthe do
   use Catalyst.Plugin
   alias Sourceror.Zipper
   alias Catalyst.Execution
