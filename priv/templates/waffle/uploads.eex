@@ -1,0 +1,22 @@
+defmodule <%= inspect(uploads_module) %> do
+  @moduledoc """
+  Upload type definitions and helpers for working with uploads
+  """
+
+  use Waffle.Ecto.Schema
+
+  alias Ecto.Changeset
+  alias Phoenix.LiveView.Socket
+
+  @doc """
+  Macro to define Upload Type
+  """
+  defmacro __using__(_opts) do
+    quote do
+      use Waffle.Definition
+      use Waffle.Ecto.Definition
+
+      alias <%= inspect(uploads_module) %>
+    end
+  end
+end
